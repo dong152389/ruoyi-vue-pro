@@ -73,6 +73,11 @@
         <justauth-starter.version>1.4.0</justauth-starter.version>
         <weixin-java.version>4.8.6-20260825.155844</weixin-java.version>
         <bouncycastle.version>1.80</bouncycastle.version>
+        <!-- AI 相关 -->
+        <spring-ai.version>1.1.8</spring-ai.version>
+        <!-- 文档解析相关 -->
+        <pdfbox.version>3.0.8</pdfbox.version>
+        <poi-ooxml.version>5.4.1</poi-ooxml.version>
     </properties>
 
     <dependencyManagement>
@@ -89,6 +94,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -556,6 +568,18 @@
                 <groupId>com.belerweb</groupId>
                 <artifactId>pinyin4j</artifactId> <!-- 汉字转拼音：作为 hutool PinyinUtil 的底层引擎 -->
                 <version>${pinyin4j.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId> <!-- PDF 文档解析：知识库文档抽取文本 -->
+                <version>${pdfbox.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId> <!-- Word 文档解析：知识库 docx 抽取文本 -->
+                <version>${poi-ooxml.version}</version>
             </dependency>
 
             <!-- 三方云服务相关 -->

@@ -6518,3 +6518,508 @@ INSERT INTO `system_users` (`id`, `username`, `password`, `nickname`, `remark`, 
 INSERT INTO `system_users` (`id`, `username`, `password`, `nickname`, `remark`, `dept_id`, `post_ids`, `email`, `mobile`, `sex`, `avatar`, `status`, `login_ip`, `login_date`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (144, 'aoteman001', '$2a$04$omQOmhz8OyUFBKw77nr8KOtMp6xdvoQ1gWStjk9r8.OYT3Bv6oEYe', 'aoteman00112', NULL, 104, NULL, '', '', 0, '', 1, '0:0:0:0:0:0:0:1', '2025-12-01 17:05:27', '1', '2025-12-01 17:05:27', '1', '2026-06-15 18:58:56', b'0', 1);
 INSERT INTO `system_users` (`id`, `username`, `password`, `nickname`, `remark`, `dept_id`, `post_ids`, `email`, `mobile`, `sex`, `avatar`, `status`, `login_ip`, `login_date`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (240, 'hrmteam', '$2a$04$JedFPcbQWaOf1OM4IrVbgeNnefdSuz4F.ktffitOu5ZGIA01fdZmm', 'HRM团队负责人', '本地团队工作台演示账号', 103, '[]', '', '', 1, '', 0, '0:0:0:0:0:0:0:1', '2026-08-01 13:28:58', '1', '2026-08-01 11:56:19', NULL, '2026-08-01 13:28:58', b'0', 1);
 COMMIT;
+
+
+-- ----------------------------
+-- ============================ AI 医疗助手模块（yudao-module-ai）============================
+-- 注意：ai_api_key 种子数据为示例，请先在【AI 医疗助手 → 模型配置】中
+--       修改 base_url（new-api 中转站地址，如 https://your-new-api/v1）与 api_key，并开启状态后再使用。
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for ai_api_key
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_api_key`;
+CREATE TABLE `ai_api_key`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'API 密钥编号',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密钥名称',
+  `platform` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'OpenAI兼容' COMMENT '模型平台（OpenAI兼容协议：new-api / one-api / 各官方中转）',
+  `api_key` varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'API 密钥',
+  `base_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '自定义 API 地址（如 new-api 的 https://xxx/v1）',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0开启 1停用）',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI API 密钥表';
+
+-- ----------------------------
+-- Table structure for ai_model
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_model`;
+CREATE TABLE `ai_model`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模型编号',
+  `key_id` bigint NOT NULL COMMENT 'API 密钥编号（关联 ai_api_key 表）',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称（显示用）',
+  `model` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型标识（如 gpt-4o-mini / deepseek-chat / text-embedding-3-small）',
+  `type` tinyint NOT NULL DEFAULT 1 COMMENT '模型类型（1对话 2向量）',
+  `temperature` double(4, 2) NULL DEFAULT 0.70 COMMENT '温度参数（仅对话模型）',
+  `max_tokens` int NULL DEFAULT 4096 COMMENT '回复最大 Token 数（仅对话模型）',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0开启 1停用）',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_key_id`(`key_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 模型表';
+
+-- ----------------------------
+-- Table structure for ai_chat_role
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_chat_role`;
+CREATE TABLE `ai_chat_role`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '角色编号',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色名称',
+  `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '角色头像',
+  `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '角色描述',
+  `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '角色系统提示词（含医疗安全护栏）',
+  `knowledge_ids` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '[]' COMMENT '绑定的知识库编号数组（JSON）',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '显示排序',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0开启 1停用）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 医疗角色预设表';
+
+-- ----------------------------
+-- Table structure for ai_chat_conversation
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_chat_conversation`;
+CREATE TABLE `ai_chat_conversation`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会话编号',
+  `user_id` bigint NOT NULL COMMENT '用户编号',
+  `role_id` bigint NULL DEFAULT NULL COMMENT '角色编号（关联 ai_chat_role 表）',
+  `model_id` bigint NOT NULL COMMENT '对话模型编号（关联 ai_model 表）',
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '新对话' COMMENT '会话标题',
+  `pinned` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否置顶',
+  `temperature` double(4, 2) NULL DEFAULT 0.70 COMMENT '温度参数',
+  `max_tokens` int NULL DEFAULT 4096 COMMENT '回复最大 Token 数',
+  `max_contexts` int NOT NULL DEFAULT 10 COMMENT '上下文最大条数',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id`(`user_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 聊天会话表';
+
+-- ----------------------------
+-- Table structure for ai_chat_message
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_chat_message`;
+CREATE TABLE `ai_chat_message`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息编号',
+  `conversation_id` bigint NOT NULL COMMENT '会话编号',
+  `user_id` bigint NOT NULL COMMENT '用户编号',
+  `type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息类型（user/assistant/system）',
+  `model` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '使用的模型标识',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '消息内容',
+  `usage_tokens` int NULL DEFAULT NULL COMMENT '本次消耗 Token 数',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_conversation_id`(`conversation_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 聊天消息表';
+
+-- ----------------------------
+-- Table structure for ai_knowledge
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_knowledge`;
+CREATE TABLE `ai_knowledge`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '知识库编号',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '知识库名称',
+  `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '知识库描述',
+  `embedding_model_id` bigint NOT NULL COMMENT '向量模型编号（关联 ai_model 表）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 医疗知识库表';
+
+-- ----------------------------
+-- Table structure for ai_knowledge_document
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_knowledge_document`;
+CREATE TABLE `ai_knowledge_document`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文档编号',
+  `knowledge_id` bigint NOT NULL COMMENT '知识库编号',
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '文档名称',
+  `url` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '文档存储地址',
+  `tokens` int NULL DEFAULT 0 COMMENT '文档总 Token 数（估算）',
+  `segment_count` int NULL DEFAULT 0 COMMENT '切片数量',
+  `slice_status` tinyint NOT NULL DEFAULT 0 COMMENT '切片状态（0待处理 1已完成 2失败）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_knowledge_id`(`knowledge_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 知识库文档表';
+
+-- ----------------------------
+-- Table structure for ai_knowledge_segment
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_knowledge_segment`;
+CREATE TABLE `ai_knowledge_segment`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '切片编号',
+  `document_id` bigint NOT NULL COMMENT '文档编号',
+  `knowledge_id` bigint NOT NULL COMMENT '知识库编号',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '切片内容',
+  `tokens` int NULL DEFAULT 0 COMMENT '切片 Token 数（估算）',
+  `vector` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '向量（JSON 数组）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_knowledge_id`(`knowledge_id`) USING BTREE,
+  INDEX `idx_document_id`(`document_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI 知识库切片表';
+
+-- ----------------------------
+-- Table structure for ai_medical_department
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_medical_department`;
+CREATE TABLE `ai_medical_department`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '科室编号',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '科室名称',
+  `description` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '科室介绍（诊疗范围）',
+  `keywords` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '症状关键词（逗号分隔，用于导诊匹配）',
+  `location` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '门诊位置',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '显示排序',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0开启 1停用）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '医疗科室表';
+
+-- ----------------------------
+-- Table structure for ai_medical_drug
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_medical_drug`;
+CREATE TABLE `ai_medical_drug`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '药品编号',
+  `name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '药品名称',
+  `category` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '药品分类',
+  `indications` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '适应症',
+  `usage_dosage` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '用法用量',
+  `contraindications` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '禁忌',
+  `interactions` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '药物相互作用',
+  `side_effects` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '不良反应',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0开启 1停用）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '医疗药品表';
+
+-- ----------------------------
+-- Table structure for ai_medical_schedule
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_medical_schedule`;
+CREATE TABLE `ai_medical_schedule`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '排班编号',
+  `department_id` bigint NOT NULL COMMENT '科室编号（关联 ai_medical_department 表）',
+  `doctor_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '医生姓名',
+  `doctor_title` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '医生职称',
+  `schedule_date` date NOT NULL COMMENT '排班日期',
+  `time_slot` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '时段（上午/下午/晚间）',
+  `time_range` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '接诊时间（如 08:00-12:00）',
+  `total_slots` int NOT NULL DEFAULT 20 COMMENT '号源总数',
+  `remaining_slots` int NOT NULL DEFAULT 20 COMMENT '剩余号源',
+  `fee` decimal(10, 2) NULL DEFAULT NULL COMMENT '挂号费（元）',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '状态（0正常 1停诊）',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_department_id`(`department_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '医生排班表';
+
+-- ----------------------------
+-- Table structure for ai_medical_appointment
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_medical_appointment`;
+CREATE TABLE `ai_medical_appointment`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '预约编号',
+  `user_id` bigint NOT NULL COMMENT '预约用户编号',
+  `patient_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '患者姓名',
+  `patient_phone` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '患者手机号',
+  `schedule_id` bigint NOT NULL COMMENT '排班编号（关联 ai_medical_schedule 表）',
+  `department_id` bigint NOT NULL COMMENT '科室编号',
+  `department_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '科室名称（冗余）',
+  `doctor_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '医生姓名（冗余）',
+  `appointment_date` date NOT NULL COMMENT '就诊日期',
+  `time_slot` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '就诊时段',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT '预约状态（0待就诊 1已完成 2已取消）',
+  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id`(`user_id`) USING BTREE,
+  INDEX `idx_schedule_id`(`schedule_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '门诊预约表';
+
+-- ----------------------------
+-- Table structure for ai_medical_record
+-- ----------------------------
+DROP TABLE IF EXISTS `ai_medical_record`;
+CREATE TABLE `ai_medical_record`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '预问诊病历编号',
+  `user_id` bigint NOT NULL COMMENT '用户编号',
+  `conversation_id` bigint NULL DEFAULT NULL COMMENT '产生病历的会话编号',
+  `chief_complaint` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '主诉',
+  `present_illness` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '现病史',
+  `past_history` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '既往史',
+  `allergy_history` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '过敏史',
+  `department_suggestion` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '建议就诊科室',
+  `advice` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '补充说明与建议',
+  `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id`(`user_id`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '预问诊病历表';
+
+-- ----------------------------
+-- Records of ai_api_key（示例数据：使用前请修改 base_url 与 api_key 并开启状态）
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_api_key` (`id`, `name`, `platform`, `api_key`, `base_url`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, 'new-api 中转站', 'OpenAI兼容', 'sk-请替换为你的密钥', 'https://请替换为你的中转站地址/v1', 1, '请编辑本记录：填入 new-api 中转站地址（以 /v1 结尾）与 API 密钥，然后开启状态', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- Records of ai_model（示例数据）
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_model` (`id`, `key_id`, `name`, `model`, `type`, `temperature`, `max_tokens`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, 1, '对话模型（示例）', 'gpt-4o-mini', 1, 0.70, 4096, 1, '请按 new-api 渠道实际支持的模型名修改，如 deepseek-chat / glm-4-flash / qwen-plus', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_model` (`id`, `key_id`, `name`, `model`, `type`, `temperature`, `max_tokens`, `status`, `remark`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (2, 1, '向量模型（示例）', 'text-embedding-3-small', 2, NULL, NULL, 1, '用于知识库向量化，需中转站支持 /v1/embeddings', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- Records of ai_chat_role（医疗角色预设）
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_chat_role` (`id`, `name`, `avatar`, `description`, `system_prompt`, `knowledge_ids`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, '智能导诊助手', NULL, '根据症状推荐就诊科室与紧急程度', '你是医院的智能导诊助手。你的职责是根据患者描述的症状，推荐合适的就诊科室，并给出就诊建议。\n\n工作规范：\n1. 先耐心询问患者的症状、持续时间、严重程度等关键信息。\n2. 需要推荐科室时，调用 searchDepartments 工具查询本院真实科室信息，基于查询结果推荐，不要编造不存在的科室。\n3. 如果症状紧急（如胸痛、呼吸困难、大出血、意识模糊、严重外伤等），必须立即建议患者拨打 120 或前往急诊科，不要再继续常规询问。\n4. 你不能给出确定性诊断，不能开具处方，只能提供分诊建议。\n5. 回复末尾附上提醒：「以上建议仅供参考，不能替代专业医疗诊断，如有不适请及时就医。」', '[]', 1, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_chat_role` (`id`, `name`, `avatar`, `description`, `system_prompt`, `knowledge_ids`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (2, '用药咨询助手', NULL, '查询药品说明书信息，解答用药疑问', '你是药房的用药咨询助手。你的职责是解答药品相关的咨询，包括药品的适应症、用法用量、禁忌、相互作用和不良反应。\n\n工作规范：\n1. 涉及具体药品信息时，必须调用 searchDrugs 或 getDrugDetail 工具查询本院药品库，基于查询结果回答，不要编造药品信息。\n2. 用药咨询必须严谨：提醒患者严格遵照说明书或医嘱用药，不可自行调整剂量。\n3. 特殊人群（孕妇、哺乳期、儿童、老人、肝肾功能不全者）的用药问题，必须建议咨询医师或药师。\n4. 你不能开具处方，不能建议患者自行使用处方药。\n5. 回复末尾附上提醒：「以上信息仅供参考，具体用药请遵医嘱或咨询药师。」', '[]', 2, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_chat_role` (`id`, `name`, `avatar`, `description`, `system_prompt`, `knowledge_ids`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (3, '预问诊助手', NULL, '收集主诉与病史，生成预问诊病历', '你是门诊预问诊助手。你的职责是在患者就诊前，通过对话收集结构化的病史信息，帮助医生提高问诊效率。\n\n工作规范：\n1. 按顺序收集：主诉（最主要的不适及持续时间）→ 现病史（起病情况、症状演变、伴随症状、诊治经过）→ 既往史 → 过敏史（药物/食物过敏）。\n2. 一次只问一个问题，语气亲切简洁，避免患者疲劳。\n3. 信息收集完整后，调用 searchDepartments 工具判断建议就诊科室，再调用 saveMedicalRecord 工具保存预问诊记录，并向患者说明已生成病历。\n4. 如发现紧急症状（胸痛、呼吸困难、意识障碍等），立即建议拨打 120 或前往急诊，停止预问诊。\n5. 你不能给出确定性诊断和治疗建议。\n6. 回复末尾附上提醒：「以上信息将提供给医生参考，不能替代面诊。」', '[]', 3, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_chat_role` (`id`, `name`, `avatar`, `description`, `system_prompt`, `knowledge_ids`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (4, '全科健康顾问', NULL, '健康科普与就医指引，可绑定知识库', '你是医院的全科健康顾问。你可以解答常见健康问题、科普疾病预防知识、解释常见检查指标的大致含义。\n\n工作规范：\n1. 涉及本院科室与就诊安排时，可调用 searchDepartments、querySchedules 工具查询真实数据。\n2. 涉及具体药品信息时，必须调用 searchDrugs 工具查询药品库，不要编造。\n3. 回答要有依据、通俗易懂，避免危言耸听，也不轻描淡写。\n4. 你不能给出确定性诊断，不能开具处方；症状持续或加重时，建议患者及时就医。\n5. 回复末尾附上提醒：「以上内容仅供参考，不能替代专业医疗建议。」', '[]', 4, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- Records of ai_medical_department
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, '内科', '诊治呼吸、消化、心血管、内分泌等内科常见病、多发病，如感冒、发热、高血压、糖尿病等。', '发热,咳嗽,头痛,头晕,乏力,失眠,水肿,胸闷,感冒,高血压,糖尿病', '门诊楼2层 内科一区', 1, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (2, '普外科', '诊治普外科疾病，包括甲状腺、乳腺、胃肠、肝胆、疝气、痔疮及体表肿物等，开展常规外科手术。', '腹痛,肿块,疝气,阑尾炎,痔疮,胆囊炎,外伤缝合,甲状腺,乳腺', '门诊楼3层 外科一区', 2, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (3, '骨科', '诊治骨折、关节疾病、颈椎病、腰椎间盘突出、骨质疏松等运动系统疾病。', '骨折,关节痛,腰痛,颈椎病,扭伤,腰间盘突出,骨质疏松', '门诊楼3层 外科二区', 3, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (4, '儿科', '0-14岁儿童常见病、多发病诊治，儿童保健与生长发育评估。', '小儿发热,小儿咳嗽,儿童湿疹,疫苗接种,发育问题,小儿腹泻', '门诊楼4层 儿科区', 4, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (5, '皮肤科', '诊治皮炎、湿疹、痤疮、荨麻疹、白癜风、银屑病等皮肤疾病。', '皮疹,湿疹,痤疮,荨麻疹,皮肤瘙痒,白癜风,银屑病', '门诊楼4层 专科区', 5, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (6, '眼科', '诊治结膜炎、白内障、青光眼、屈光不正等眼部疾病，开展视力矫正咨询。', '视力下降,眼睛干涩,结膜炎,眼痛,近视,白内障,飞蚊症', '门诊楼4层 专科区', 6, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (7, '口腔科', '诊治龋齿、牙髓炎、牙周病，开展补牙、拔牙、洁牙、牙齿矫正等。', '牙痛,龋齿,口腔溃疡,牙龈出血,智齿,牙齿矫正', '门诊楼4层 专科区', 7, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (8, '耳鼻喉科', '诊治鼻炎、鼻窦炎、中耳炎、咽喉炎、耳鸣、听力下降等耳鼻喉疾病。', '耳鸣,听力下降,鼻炎,鼻塞,咽喉痛,打鼾,眩晕', '门诊楼4层 专科区', 8, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (9, '妇科', '诊治妇科炎症、月经不调、宫颈疾病，开展孕前检查、妇科保健咨询。', '月经不调,痛经,白带异常,阴道炎,盆腔炎,孕前检查,乳腺增生', '门诊楼4层 专科区', 9, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (10, '急诊科', '24小时接诊急危重症患者，如急性胸痛、呼吸困难、大出血、严重外伤、意识障碍等。', '胸痛,呼吸困难,大出血,意识模糊,昏迷,严重外伤,抽搐,高热惊厥,中毒', '急诊楼1层 24小时', 10, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (11, '心血管内科', '诊治高血压、冠心病、心律失常、心力衰竭等心血管疾病。', '心悸,胸痛,高血压,心律失常,冠心病,心衰,晕厥', '门诊楼2层 内科二区', 11, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_department` (`id`, `name`, `description`, `keywords`, `location`, `sort`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (12, '消化内科', '诊治胃炎、胃溃疡、反流性食管炎、肝炎、便秘、腹泻等消化系统疾病，开展胃肠镜检查。', '胃痛,胃胀,反酸,烧心,便秘,腹泻,胃炎,胃溃疡,肝炎', '门诊楼2层 内科三区', 12, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- Records of ai_medical_drug（示例药品库，共 20 种常用药品）
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, '布洛芬缓释胶囊', '解热镇痛药', '用于缓解轻至中度疼痛（头痛、关节痛、肌肉痛、牙痛、痛经）及普通感冒或流行性感冒引起的发热。', '成人一次1粒（0.3g），一日2次（早晚各一次）。缓释剂型不可掰开或嚼碎服用。', '消化道溃疡或出血史、严重肝肾功能不全、对本品及阿司匹林过敏者禁用；孕晚期禁用。', '与抗凝药（如华法林）合用增加出血风险；避免与其他解热镇痛药同服；服药期间避免饮酒。', '常见胃肠道不适、恶心、胃灼热；偶见皮疹；长期大剂量使用可能引起肾损害。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (2, '对乙酰氨基酚片', '解热镇痛药', '用于普通感冒或流感引起的发热，及轻中度疼痛（头痛、牙痛、肌肉痛）。', '成人一次0.5g，若持续发热或疼痛可间隔4-6小时重复用药一次，24小时内不得超过4次。', '严重肝肾功能不全者禁用；对本品过敏者禁用。', '避免与含相同成分的复方感冒药同服，以防过量；服药期间饮酒增加肝损伤风险。', '治疗剂量下不良反应较少；过量服用可引起严重肝损伤。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (3, '阿莫西林胶囊', '青霉素类抗生素', '适用于敏感菌所致的呼吸道感染、泌尿生殖道感染、皮肤软组织感染等。本品为处方药。', '成人一次0.5g，每6-8小时一次，一日剂量不超过4g，具体疗程遵医嘱。', '青霉素过敏者禁用；使用前请如实告知医生过敏史。', '与丙磺舒合用可升高本品血药浓度；与别嘌醇合用皮疹发生率增加。', '以皮疹、过敏反应为主，严重者可发生过敏性休克；偶见胃肠道不适。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (4, '头孢克肟胶囊', '头孢菌素类抗生素', '适用于敏感菌所致的呼吸道感染、胆道感染、尿路感染等。本品为处方药。', '成人一次50-100mg，一日2次，具体遵医嘱。', '对头孢类抗生素过敏者禁用。', '服药期间及停药后数日内避免饮酒，以防不适反应；与抗酸药同服可影响吸收。', '常见腹泻、恶心、皮疹；偶见一过性肝酶升高。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (5, '阿奇霉素片', '大环内酯类抗生素', '适用于支原体、衣原体等敏感病原体引起的呼吸道感染、皮肤软组织感染。本品为处方药。', '常用方案：首日0.5g一次顿服，第2-5日一日0.25g；或遵医嘱。宜在饭前1小时或饭后2小时服用。', '对大环内酯类药物过敏者禁用。', '与含铝镁的抗酸药同服影响吸收，需间隔服用；与他汀类药物合用需监测肌肉症状。', '以胃肠道反应为主（恶心、腹泻、腹痛）；偶见肝功能异常。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (6, '奥美拉唑肠溶胶囊', '质子泵抑制剂', '用于胃溃疡、十二指肠溃疡、反流性食管炎及幽门螺杆菌根除的联合用药。本品为处方药。', '一次20mg，一日1-2次，晨起吞服或遵医嘱；肠溶胶囊不可掰开嚼碎。', '对本品过敏者禁用；严重肝功能不全者慎用。', '与氯吡格雷合用需咨询医生；长期使用可影响维生素B12及镁的吸收。', '常见头痛、腹泻、腹胀、恶心；长期使用注意监测。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (7, '铝碳酸镁咀嚼片', '抗酸与胃黏膜保护剂', '用于缓解胃痛、胃胀、反酸、嗳气等与胃酸相关的不适。', '一次0.5-1.0g（1-2片），嚼碎后温水送服，一日3-4次，餐后1-2小时或睡前服用。', '对本品过敏者禁用；严重肾功能不全者慎用。', '与其他口服药需间隔1-2小时，以免影响吸收。', '偶见便秘、口干；大剂量长期使用注意镁代谢。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (8, '蒙脱石散', '止泻吸附剂', '用于成人及儿童急慢性腹泻，对肠道病毒、细菌及其毒素有吸附固定作用。', '一次1袋（3g）倒入50ml温水中摇匀服用，一日3次；急性腹泻首剂加倍；与其他药物间隔1-2小时。', '对本品过敏者禁用。', '可吸附其他药物，联合用药需间隔服用。', '偶见便秘，过量服用易发生。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (9, '氯雷他定片', '抗组胺药', '用于缓解过敏性鼻炎的鼻痒、流涕、打喷嚏等症状，及慢性荨麻疹、皮肤过敏。', '成人及12岁以上儿童一次10mg，一日1次，空腹服用吸收更好。', '对本品过敏者禁用。', '与中枢抑制药合用需谨慎；西柚汁可能影响代谢。', '偶见乏力、头痛、口干，嗜睡发生率较低。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (10, '盐酸西替利嗪片', '抗组胺药', '用于过敏性鼻炎、荨麻疹等过敏性疾病。', '成人一次10mg，一日1次，建议晚间服用。', '对本品过敏者禁用；严重肾功能不全者需减量。', '与中枢抑制药、酒精合用可加重嗜睡。', '常见嗜睡、口干、头痛。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (11, '盐酸氨溴索片', '祛痰药', '用于痰液黏稠不易咳出的呼吸道疾病（急慢性支气管炎、肺炎等）。', '成人一次30mg，一日3次，饭后服用。', '对本品过敏者禁用；胃溃疡患者慎用。', '避免与强力镇咳药同时使用，以免痰液滞留。', '偶见胃肠道不适、皮疹。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (12, '硝酸甘油片', '抗心绞痛药', '用于心绞痛急性发作的救治。本品为处方药，请严格遵医嘱随身携带使用。', '心绞痛发作时舌下含服0.5mg，约5分钟可重复一次，最多3次；无效立即就医。', '严重低血压、颅内压增高、对硝酸酯类过敏者禁用。', '严禁与西地那非等5型磷酸二酯酶抑制剂合用，可致严重低血压。', '常见头痛、面部潮红、心悸、体位性低血压。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (13, '阿托伐他汀钙片', '调脂药', '用于高胆固醇血症、混合型血脂异常及心血管疾病的一二级预防。本品为处方药。', '常用起始剂量一次10-20mg，一日1次，任意时间服用，具体遵医嘱。', '活动性肝病、不明原因血清转氨酶持续升高、孕妇及哺乳期妇女禁用。', '避免与大量西柚汁同服；与克拉霉素等CYP3A4强抑制剂合用需评估风险。', '常见肌肉酸痛；罕见但严重的不良反应为横纹肌溶解、肝酶升高。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (14, '苯磺酸氨氯地平片', '钙通道阻滞剂', '用于治疗高血压、稳定型心绞痛。本品为处方药。', '起始剂量一次5mg，一日1次，最大不超过10mg，具体遵医嘱。', '对二氢吡啶类钙拮抗剂过敏者、严重低血压患者禁用。', '与辛伐他汀合用时，辛伐他汀日剂量不得超过20mg。', '常见踝部水肿、面部潮红、头痛、牙龈增生。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (15, '盐酸二甲双胍片', '口服降糖药', '用于2型糖尿病的血糖控制，尤其适合超重患者。本品为处方药。', '起始一次0.5g，一日2次，随餐服用以减轻胃肠道反应，剂量调整遵医嘱。', '严重肾功能不全、急性心衰、缺氧状态者禁用；碘造影检查前后48小时暂停使用。', '与碘造影剂、过量酒精合用增加乳酸酸中毒风险。', '常见胃肠道反应；长期使用注意补充维生素B12。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (16, '左甲状腺素钠片', '甲状腺激素类药', '用于甲状腺功能减退症的替代治疗。本品为处方药。', '晨起空腹服用，每日一次，与早餐间隔至少30-60分钟，剂量严格遵医嘱个体化调整。', '对本品过敏者、未经治疗的肾上腺功能不全患者禁用。', '与钙剂、铁剂、质子泵抑制剂需间隔4小时以上服用，以免影响吸收。', '过量可出现心悸、多汗、体重下降等甲亢样症状，需定期复查甲功。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (17, '开塞露', '缓泻药', '用于便秘的临时对症处理。', '外用：剪开瓶口（注意修剪光滑），缓慢注入肛门，成人一次1支（20ml），保留数分钟后排便。', '对成分过敏者禁用；疑似肠穿孔、消化道出血者禁用。', '无明显药物相互作用。', '不宜长期依赖使用，长期使用可能降低直肠排便敏感性。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (18, '红霉素软膏', '外用抗生素', '用于脓疱疮等化脓性皮肤病、小面积烧伤、溃疡面的感染及寻常痤疮。', '外用：取适量涂于患处，一日2次。', '对大环内酯类抗生素过敏者禁用。', '本品为外用制剂，全身相互作用少见。', '偶见局部刺激、瘙痒或过敏反应。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (19, '碘伏消毒液', '外用消毒剂', '用于皮肤黏膜的消毒，小伤口、术前皮肤准备等。', '外用：以棉签蘸取涂擦消毒部位1-2遍，必要时用无菌纱布覆盖。', '对碘过敏者禁用；甲状腺疾病患者避免大面积长期使用。', '避免与红汞（红药水）同时使用。', '偶见局部过敏反应，表现为灼热、红肿。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_drug` (`id`, `name`, `category`, `indications`, `usage_dosage`, `contraindications`, `interactions`, `side_effects`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (20, '多潘立酮片', '促胃动力药', '用于消化不良、腹胀、嗳气、恶心、呕吐等症状。', '成人一次10mg，一日3次，餐前15-30分钟服用。', '机械性消化道梗阻、消化道穿孔或出血者禁用；对本品过敏者禁用；心脏病患者慎用。', '避免与酮康唑等CYP3A4强抑制剂合用（有心电图QT间期延长风险）。', '偶见口干、头痛；长期使用可引起泌乳素升高相关症状。', 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- Records of ai_medical_schedule（2026-09-01 ~ 2026-09-05 示例排班）
+-- ----------------------------
+BEGIN;
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (1, 1, '王建国', '主任医师', '2026-09-01', '上午', '08:00-12:00', 20, 17, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (2, 1, '王建国', '主任医师', '2026-09-01', '下午', '14:00-17:30', 20, 13, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (3, 1, '王建国', '主任医师', '2026-09-02', '上午', '08:00-12:00', 20, 20, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (4, 1, '王建国', '主任医师', '2026-09-02', '下午', '14:00-17:30', 20, 16, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (5, 1, '王建国', '主任医师', '2026-09-03', '上午', '08:00-12:00', 20, 12, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (6, 1, '王建国', '主任医师', '2026-09-03', '下午', '14:00-17:30', 20, 19, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (7, 1, '王建国', '主任医师', '2026-09-04', '上午', '08:00-12:00', 20, 15, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (8, 1, '王建国', '主任医师', '2026-09-04', '下午', '14:00-17:30', 20, 11, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (9, 1, '王建国', '主任医师', '2026-09-05', '上午', '08:00-12:00', 20, 18, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (10, 1, '王建国', '主任医师', '2026-09-05', '下午', '14:00-17:30', 20, 14, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (11, 1, '李晓芳', '主治医师', '2026-09-01', '上午', '08:00-12:00', 20, 10, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (12, 1, '李晓芳', '主治医师', '2026-09-01', '下午', '14:00-17:30', 20, 17, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (13, 1, '李晓芳', '主治医师', '2026-09-02', '上午', '08:00-12:00', 20, 13, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (14, 1, '李晓芳', '主治医师', '2026-09-02', '下午', '14:00-17:30', 20, 20, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (15, 1, '李晓芳', '主治医师', '2026-09-03', '上午', '08:00-12:00', 20, 16, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (16, 1, '李晓芳', '主治医师', '2026-09-03', '下午', '14:00-17:30', 20, 12, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (17, 1, '李晓芳', '主治医师', '2026-09-04', '上午', '08:00-12:00', 20, 19, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (18, 1, '李晓芳', '主治医师', '2026-09-04', '下午', '14:00-17:30', 20, 15, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (19, 1, '李晓芳', '主治医师', '2026-09-05', '上午', '08:00-12:00', 20, 11, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (20, 1, '李晓芳', '主治医师', '2026-09-05', '下午', '14:00-17:30', 20, 18, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (21, 3, '张伟', '主任医师', '2026-09-01', '上午', '08:00-12:00', 20, 14, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (22, 3, '张伟', '主任医师', '2026-09-01', '下午', '14:00-17:30', 20, 10, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (23, 3, '张伟', '主任医师', '2026-09-02', '上午', '08:00-12:00', 20, 17, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (24, 3, '张伟', '主任医师', '2026-09-02', '下午', '14:00-17:30', 20, 13, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (25, 3, '张伟', '主任医师', '2026-09-03', '上午', '08:00-12:00', 20, 20, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (26, 3, '张伟', '主任医师', '2026-09-03', '下午', '14:00-17:30', 20, 16, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (27, 3, '张伟', '主任医师', '2026-09-04', '上午', '08:00-12:00', 20, 12, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (28, 3, '张伟', '主任医师', '2026-09-04', '下午', '14:00-17:30', 20, 19, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (29, 3, '张伟', '主任医师', '2026-09-05', '上午', '08:00-12:00', 20, 15, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (30, 3, '张伟', '主任医师', '2026-09-05', '下午', '14:00-17:30', 20, 11, 28.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (31, 3, '陈涛', '主治医师', '2026-09-01', '上午', '08:00-12:00', 20, 18, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (32, 3, '陈涛', '主治医师', '2026-09-01', '下午', '14:00-17:30', 20, 14, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (33, 3, '陈涛', '主治医师', '2026-09-02', '上午', '08:00-12:00', 20, 10, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (34, 3, '陈涛', '主治医师', '2026-09-02', '下午', '14:00-17:30', 20, 17, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (35, 3, '陈涛', '主治医师', '2026-09-03', '上午', '08:00-12:00', 20, 13, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (36, 3, '陈涛', '主治医师', '2026-09-03', '下午', '14:00-17:30', 20, 20, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (37, 3, '陈涛', '主治医师', '2026-09-04', '上午', '08:00-12:00', 20, 16, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (38, 3, '陈涛', '主治医师', '2026-09-04', '下午', '14:00-17:30', 20, 12, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (39, 3, '陈涛', '主治医师', '2026-09-05', '上午', '08:00-12:00', 20, 19, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (40, 3, '陈涛', '主治医师', '2026-09-05', '下午', '14:00-17:30', 20, 15, 16.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (41, 4, '刘爱华', '主任医师', '2026-09-01', '上午', '08:00-12:00', 20, 11, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (42, 4, '刘爱华', '主任医师', '2026-09-01', '下午', '14:00-17:30', 20, 18, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (43, 4, '刘爱华', '主任医师', '2026-09-02', '上午', '08:00-12:00', 20, 14, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (44, 4, '刘爱华', '主任医师', '2026-09-02', '下午', '14:00-17:30', 20, 10, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (45, 4, '刘爱华', '主任医师', '2026-09-03', '上午', '08:00-12:00', 20, 17, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (46, 4, '刘爱华', '主任医师', '2026-09-03', '下午', '14:00-17:30', 20, 13, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (47, 4, '刘爱华', '主任医师', '2026-09-04', '上午', '08:00-12:00', 20, 20, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (48, 4, '刘爱华', '主任医师', '2026-09-04', '下午', '14:00-17:30', 20, 16, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (49, 4, '刘爱华', '主任医师', '2026-09-05', '上午', '08:00-12:00', 20, 12, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (50, 4, '刘爱华', '主任医师', '2026-09-05', '下午', '14:00-17:30', 20, 19, 25.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (51, 4, '赵敏', '主治医师', '2026-09-01', '上午', '08:00-12:00', 20, 15, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (52, 4, '赵敏', '主治医师', '2026-09-01', '下午', '14:00-17:30', 20, 11, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (53, 4, '赵敏', '主治医师', '2026-09-02', '上午', '08:00-12:00', 20, 18, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (54, 4, '赵敏', '主治医师', '2026-09-02', '下午', '14:00-17:30', 20, 14, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (55, 4, '赵敏', '主治医师', '2026-09-03', '上午', '08:00-12:00', 20, 10, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (56, 4, '赵敏', '主治医师', '2026-09-03', '下午', '14:00-17:30', 20, 17, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (57, 4, '赵敏', '主治医师', '2026-09-04', '上午', '08:00-12:00', 20, 13, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (58, 4, '赵敏', '主治医师', '2026-09-04', '下午', '14:00-17:30', 20, 20, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (59, 4, '赵敏', '主治医师', '2026-09-05', '上午', '08:00-12:00', 20, 16, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (60, 4, '赵敏', '主治医师', '2026-09-05', '下午', '14:00-17:30', 20, 12, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (61, 5, '孙丽', '副主任医师', '2026-09-01', '上午', '08:00-12:00', 20, 19, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (62, 5, '孙丽', '副主任医师', '2026-09-01', '下午', '14:00-17:30', 20, 15, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (63, 5, '孙丽', '副主任医师', '2026-09-02', '上午', '08:00-12:00', 20, 11, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (64, 5, '孙丽', '副主任医师', '2026-09-02', '下午', '14:00-17:30', 20, 18, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (65, 5, '孙丽', '副主任医师', '2026-09-03', '上午', '08:00-12:00', 20, 14, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (66, 5, '孙丽', '副主任医师', '2026-09-03', '下午', '14:00-17:30', 20, 10, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (67, 5, '孙丽', '副主任医师', '2026-09-04', '上午', '08:00-12:00', 20, 17, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (68, 5, '孙丽', '副主任医师', '2026-09-04', '下午', '14:00-17:30', 20, 13, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (69, 5, '孙丽', '副主任医师', '2026-09-05', '上午', '08:00-12:00', 20, 20, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (70, 5, '孙丽', '副主任医师', '2026-09-05', '下午', '14:00-17:30', 20, 16, 22.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (71, 5, '周军', '主治医师', '2026-09-01', '上午', '08:00-12:00', 20, 12, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (72, 5, '周军', '主治医师', '2026-09-01', '下午', '14:00-17:30', 20, 19, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (73, 5, '周军', '主治医师', '2026-09-02', '上午', '08:00-12:00', 20, 15, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (74, 5, '周军', '主治医师', '2026-09-02', '下午', '14:00-17:30', 20, 11, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (75, 5, '周军', '主治医师', '2026-09-03', '上午', '08:00-12:00', 20, 18, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (76, 5, '周军', '主治医师', '2026-09-03', '下午', '14:00-17:30', 20, 14, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (77, 5, '周军', '主治医师', '2026-09-04', '上午', '08:00-12:00', 20, 10, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (78, 5, '周军', '主治医师', '2026-09-04', '下午', '14:00-17:30', 20, 17, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (79, 5, '周军', '主治医师', '2026-09-05', '上午', '08:00-12:00', 20, 13, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+INSERT INTO `ai_medical_schedule` (`id`, `department_id`, `doctor_name`, `doctor_title`, `schedule_date`, `time_slot`, `time_range`, `total_slots`, `remaining_slots`, `fee`, `status`, `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`) VALUES (80, 5, '周军', '主治医师', '2026-09-05', '下午', '14:00-17:30', 20, 20, 15.00, 0, '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0', 1);
+COMMIT;
+
+-- ----------------------------
+-- 菜单：AI 医疗助手（目录 2500，页面 2501-2508，按钮 2520-2550）
+-- ----------------------------
+BEGIN;
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2500, 'AI 医疗助手', '', 1, 100, 0, '/ai', 'ep:first-aid-kit', NULL, NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2501, '医疗对话', '', 2, 1, 2500, 'chat', 'ep:chat-dot-round', 'ai/medical/chat/index', 'AiMedicalChat', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2502, '医疗知识库', '', 2, 2, 2500, 'knowledge', 'ep:collection', 'ai/medical/knowledge/index', 'AiMedicalKnowledge', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2503, '科室管理', '', 2, 3, 2500, 'department', 'ep:office-building', 'ai/medical/department/index', 'AiMedicalDepartment', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2504, '药品管理', '', 2, 4, 2500, 'drug', 'ep:box', 'ai/medical/drug/index', 'AiMedicalDrug', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2505, '排班管理', '', 2, 5, 2500, 'schedule', 'ep:calendar', 'ai/medical/schedule/index', 'AiMedicalSchedule', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2506, '预约记录', '', 2, 6, 2500, 'appointment', 'ep:tickets', 'ai/medical/appointment/index', 'AiMedicalAppointment', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2507, '预问诊病历', '', 2, 7, 2500, 'record', 'ep:document', 'ai/medical/record/index', 'AiMedicalRecord', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2508, '模型配置', '', 2, 8, 2500, 'model', 'ep:setting', 'ai/medical/model/index', 'AiModelConfig', 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2520, '科室查询', 'ai:medical-department:query', 3, 1, 2503, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2521, '科室新增', 'ai:medical-department:create', 3, 2, 2503, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2522, '科室修改', 'ai:medical-department:update', 3, 3, 2503, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2523, '科室删除', 'ai:medical-department:delete', 3, 4, 2503, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2524, '药品查询', 'ai:medical-drug:query', 3, 1, 2504, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2525, '药品新增', 'ai:medical-drug:create', 3, 2, 2504, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2526, '药品修改', 'ai:medical-drug:update', 3, 3, 2504, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2527, '药品删除', 'ai:medical-drug:delete', 3, 4, 2504, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2528, '排班查询', 'ai:medical-schedule:query', 3, 1, 2505, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2529, '排班新增', 'ai:medical-schedule:create', 3, 2, 2505, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2530, '排班修改', 'ai:medical-schedule:update', 3, 3, 2505, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2531, '排班删除', 'ai:medical-schedule:delete', 3, 4, 2505, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2532, '预约查询', 'ai:medical-appointment:query', 3, 1, 2506, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2533, '预约新增', 'ai:medical-appointment:create', 3, 2, 2506, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2534, '预约修改', 'ai:medical-appointment:update', 3, 3, 2506, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2535, '预约删除', 'ai:medical-appointment:delete', 3, 4, 2506, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2536, '病历查询', 'ai:medical-record:query', 3, 1, 2507, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2537, '病历修改', 'ai:medical-record:update', 3, 3, 2507, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2538, '病历删除', 'ai:medical-record:delete', 3, 4, 2507, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2539, '知识库查询', 'ai:knowledge:query', 3, 1, 2502, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2540, '知识库新增', 'ai:knowledge:create', 3, 2, 2502, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2541, '知识库修改', 'ai:knowledge:update', 3, 3, 2502, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2542, '知识库删除', 'ai:knowledge:delete', 3, 4, 2502, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2543, '密钥查询', 'ai:api-key:query', 3, 1, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2544, '密钥新增', 'ai:api-key:create', 3, 2, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2545, '密钥修改', 'ai:api-key:update', 3, 3, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2546, '密钥删除', 'ai:api-key:delete', 3, 4, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2547, '模型查询', 'ai:model:query', 3, 1, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2548, '模型新增', 'ai:model:create', 3, 2, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2549, '模型修改', 'ai:model:update', 3, 3, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+INSERT INTO `system_menu` (`id`, `name`, `permission`, `type`, `sort`, `parent_id`, `path`, `icon`, `component`, `component_name`, `status`, `visible`, `keep_alive`, `always_show`, `creator`, `create_time`, `updater`, `update_time`, `deleted`) VALUES (2550, '模型删除', 'ai:model:delete', 3, 4, 2508, '', '', '', NULL, 0, b'1', b'1', b'1', '1', '2026-08-31 00:00:00', '1', '2026-08-31 00:00:00', b'0');
+COMMIT;

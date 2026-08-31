@@ -1,0 +1,25 @@
+package cn.iocoder.yudao.module.ai.dal.mysql.knowledge;
+
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.ai.controller.admin.knowledge.vo.DocumentPageReqVO;
+import cn.iocoder.yudao.module.ai.dal.dataobject.knowledge.AiKnowledgeDocumentDO;
+import org.apache.ibatis.annotations.Mapper;
+
+/**
+ * AI 知识库文档 Mapper
+ *
+ * @author 芋道源码
+ */
+@Mapper
+public interface AiKnowledgeDocumentMapper extends BaseMapperX<AiKnowledgeDocumentDO> {
+
+    default PageResult<AiKnowledgeDocumentDO> selectPage(DocumentPageReqVO reqVO) {
+        return selectPage(reqVO, new LambdaQueryWrapperX<AiKnowledgeDocumentDO>()
+                .eqIfPresent(AiKnowledgeDocumentDO::getKnowledgeId, reqVO.getKnowledgeId())
+                .likeIfPresent(AiKnowledgeDocumentDO::getName, reqVO.getName())
+                .orderByDesc(AiKnowledgeDocumentDO::getId));
+    }
+
+}
