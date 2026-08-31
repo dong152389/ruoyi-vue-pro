@@ -10,7 +10,6 @@ import cn.iocoder.yudao.module.system.dal.dataobject.mail.MailTemplateDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.mq.message.mail.MailSendMessage;
 import cn.iocoder.yudao.module.system.mq.producer.mail.MailProducer;
-import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import org.assertj.core.util.Lists;
 import org.dromara.hutool.extra.mail.MailAccount;
@@ -41,8 +40,6 @@ public class MailSendServiceImplTest extends BaseMockitoUnitTest {
 
     @Mock
     private AdminUserService adminUserService;
-    @Mock
-    private MemberService memberService;
     @Mock
     private MailAccountService mailAccountService;
     @Mock

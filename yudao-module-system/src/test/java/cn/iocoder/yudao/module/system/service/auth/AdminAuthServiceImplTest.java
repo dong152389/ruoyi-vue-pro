@@ -15,7 +15,6 @@ import cn.iocoder.yudao.module.system.enums.logger.LoginResultEnum;
 import cn.iocoder.yudao.module.system.enums.sms.SmsSceneEnum;
 import cn.iocoder.yudao.module.system.enums.social.SocialTypeEnum;
 import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
-import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -57,8 +56,6 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     private SmsCodeApi smsCodeApi;
     @MockitoBean
     private OAuth2TokenService oauth2TokenService;
-    @MockitoBean
-    private MemberService memberService;
     @MockitoBean
     private Validator validator;
 

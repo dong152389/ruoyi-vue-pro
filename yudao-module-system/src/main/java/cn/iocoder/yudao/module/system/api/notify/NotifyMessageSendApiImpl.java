@@ -23,10 +23,4 @@ public class NotifyMessageSendApiImpl implements NotifyMessageSendApi {
                 reqDTO.getTemplateCode(), reqDTO.getTemplateParams());
     }
 
-    @Override
-    public Long sendSingleMessageToMember(NotifySendSingleToUserReqDTO reqDTO) {
-        return notifySendService.sendSingleNotifyToMember(reqDTO.getUserId(),
-                reqDTO.getTemplateCode(), reqDTO.getTemplateParams());
-    }
-
 }

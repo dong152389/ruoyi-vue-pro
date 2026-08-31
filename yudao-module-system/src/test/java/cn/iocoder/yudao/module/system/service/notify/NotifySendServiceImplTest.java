@@ -62,34 +62,6 @@ class NotifySendServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(messageId, resultMessageId);
     }
 
-    @Test
-    public void testSendSingleNotifyToMember() {
-        // 准备参数
-        Long userId = randomLongId();
-        String templateCode = randomString();
-        Map<String, Object> templateParams = MapUtil.<String, Object>builder().put("code", "1234")
-                .put("op", "login").build();
-        // mock NotifyTemplateService 的方法
-        NotifyTemplateDO template = randomPojo(NotifyTemplateDO.class, o -> {
-            o.setStatus(CommonStatusEnum.ENABLE.getStatus());
-            o.setContent("验证码为{code}, 操作为{op}");
-            o.setParams(Lists.newArrayList("code", "op"));
-        });
-        when(notifyTemplateService.getNotifyTemplateByCodeFromCache(eq(templateCode))).thenReturn(template);
-        String content = randomString();
-        when(notifyTemplateService.formatNotifyTemplateContent(eq(template.getContent()), eq(templateParams)))
-                .thenReturn(content);
-        // mock NotifyMessageService 的方法
-        Long messageId = randomLongId();
-        when(notifyMessageService.createNotifyMessage(eq(userId), eq(UserTypeEnum.MEMBER.getValue()),
-                eq(template), eq(content), eq(templateParams))).thenReturn(messageId);
-
-        // 调用
-        Long resultMessageId = notifySendService.sendSingleNotifyToMember(userId, templateCode, templateParams);
-        // 断言
-        assertEquals(messageId, resultMessageId);
-    }
-
     /**
      * 发送成功，当短信模板开启时
      */

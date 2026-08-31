@@ -7,15 +7,11 @@
 
 ```text
 .
-├── Docker-HOWTO.md                 
-├── docker-compose.yml              
+├── Docker-HOWTO.md
+├── docker-compose.yml
 ├── docker.env                      <-- 提供docker-compose环境变量配置
-├── yudao-server
-│   └── Dockerfile
-└── yudao-ui-admin
-    ├── .dockerignore
-    ├── Dockerfile
-    └── nginx.conf                  <-- 提供基础配置，gzip压缩、api转发
+└── yudao-server
+    └── Dockerfile
 ```
 
 ## 构建 jar 包
@@ -43,7 +39,6 @@ docker compose --env-file docker.env up -d
 
 ## 服务器的宿主机端口映射
 
-- admin ui: http://localhost:8080
 - api server: http://localhost:48080
 - mysql: root/123456, port: 3306
 - redis: port: 6379

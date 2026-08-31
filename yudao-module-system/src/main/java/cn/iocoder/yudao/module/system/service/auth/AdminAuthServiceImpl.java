@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.system.service.auth;
 
-import cn.hutool.core.util.ObjectUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.util.monitor.TracerUtils;
@@ -22,7 +21,6 @@ import cn.iocoder.yudao.module.system.enums.logger.LoginResultEnum;
 import cn.iocoder.yudao.module.system.enums.oauth2.OAuth2ClientConstants;
 import cn.iocoder.yudao.module.system.enums.sms.SmsSceneEnum;
 import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
-import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
@@ -61,8 +59,6 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private OAuth2TokenService oauth2TokenService;
     @Resource
     private SocialUserService socialUserService;
-    @Resource
-    private MemberService memberService;
     @Resource
     private Validator validator;
     @Resource
@@ -249,11 +245,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         reqDTO.setTraceId(TracerUtils.getTraceId());
         reqDTO.setUserId(userId);
         reqDTO.setUserType(userType);
-        if (ObjectUtil.equal(getUserType().getValue(), userType)) {
-            reqDTO.setUsername(getUsername(userId));
-        } else {
-            reqDTO.setUsername(memberService.getMemberUserMobile(userId));
-        }
+        reqDTO.setUsername(getUsername(userId));
         reqDTO.setUserAgent(ServletUtils.getUserAgent());
         reqDTO.setUserIp(ServletUtils.getClientIP());
         reqDTO.setResult(LoginResultEnum.SUCCESS.getResult());

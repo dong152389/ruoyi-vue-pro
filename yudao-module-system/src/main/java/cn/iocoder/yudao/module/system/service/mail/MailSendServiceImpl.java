@@ -10,7 +10,6 @@ import cn.iocoder.yudao.module.system.dal.dataobject.mail.MailTemplateDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.mq.message.mail.MailSendMessage;
 import cn.iocoder.yudao.module.system.mq.producer.mail.MailProducer;
-import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.google.common.annotations.VisibleForTesting;
 import jakarta.annotation.Resource;
@@ -41,8 +40,6 @@ public class MailSendServiceImpl implements MailSendService {
 
     @Resource
     private AdminUserService adminUserService;
-    @Resource
-    private MemberService memberService;
 
     @Resource
     private MailAccountService mailAccountService;
@@ -110,9 +107,6 @@ public class MailSendServiceImpl implements MailSendService {
             if (user != null) {
                 return user.getEmail();
             }
-        }
-        if (UserTypeEnum.MEMBER.getValue().equals(userType)) {
-            return memberService.getMemberUserEmail(userId);
         }
         return null;
     }

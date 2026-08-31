@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.system.controller.admin.notify;
 
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
-import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
@@ -100,12 +99,7 @@ public class NotifyTemplateController {
     @Operation(summary = "发送站内信")
     @PreAuthorize("@ss.hasPermission('system:notify-template:send-notify')")
     public CommonResult<Long> sendNotify(@Valid @RequestBody NotifyTemplateSendReqVO sendReqVO) {
-        if (UserTypeEnum.MEMBER.getValue().equals(sendReqVO.getUserType())) {
-            return success(notifySendService.sendSingleNotifyToMember(sendReqVO.getUserId(),
-                    sendReqVO.getTemplateCode(), sendReqVO.getTemplateParams()));
-        } else {
-            return success(notifySendService.sendSingleNotifyToAdmin(sendReqVO.getUserId(),
-                    sendReqVO.getTemplateCode(), sendReqVO.getTemplateParams()));
-        }
+        return success(notifySendService.sendSingleNotifyToAdmin(sendReqVO.getUserId(),
+                sendReqVO.getTemplateCode(), sendReqVO.getTemplateParams()));
     }
 }
