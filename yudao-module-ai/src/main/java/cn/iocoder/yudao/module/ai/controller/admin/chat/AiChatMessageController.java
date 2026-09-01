@@ -40,7 +40,11 @@ public class AiChatMessageController {
     private AiChatConversationService conversationService;
 
     @PostMapping(value = "/send-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "流式发送聊天消息", description = "SSE 返回，事件 data 为 JSON：content 增量内容 / done 完成 / error 失败")
+    @Operation(summary = "流式发送聊天消息",
+            description = "SSE 按模型平台输出官方流式协议（由密钥 platform 决定）："
+                    + "OpenAI兼容 → chat.completion.chunk + [DONE]；"
+                    + "Anthropic → 官方 messages 事件流；"
+                    + "Gemini → 官方 streamGenerateContent 流")
     public SseEmitter sendMessageStream(@Valid @RequestBody MessageSendReqVO reqVO) {
         Long userId = SecurityFrameworkUtils.getLoginUserId();
         Long tenantId = TenantContextHolder.getRequiredTenantId();

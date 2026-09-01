@@ -29,13 +29,13 @@ import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 public class AiMedicalRecordController {
 
     @Resource
-    private AiMedicalRecordService recordService;
+    private AiMedicalRecordService medicalRecordService;
 
     @PutMapping("/update")
     @Operation(summary = "修改预问诊病历")
     @PreAuthorize("@ss.hasPermission('ai:medical-record:update')")
     public CommonResult<Boolean> updateRecord(@Valid @RequestBody RecordSaveReqVO updateReqVO) {
-        recordService.updateRecord(updateReqVO);
+        medicalRecordService.updateRecord(updateReqVO);
         return success(true);
     }
 
@@ -44,7 +44,7 @@ public class AiMedicalRecordController {
     @Parameter(name = "id", description = "病历编号", required = true, example = "1")
     @PreAuthorize("@ss.hasPermission('ai:medical-record:delete')")
     public CommonResult<Boolean> deleteRecord(@RequestParam("id") Long id) {
-        recordService.deleteRecord(id);
+        medicalRecordService.deleteRecord(id);
         return success(true);
     }
 
@@ -53,14 +53,14 @@ public class AiMedicalRecordController {
     @Parameter(name = "id", description = "病历编号", required = true, example = "1")
     @PreAuthorize("@ss.hasPermission('ai:medical-record:query')")
     public CommonResult<RecordRespVO> getRecord(@RequestParam("id") Long id) {
-        return success(BeanUtils.toBean(recordService.getRecord(id), RecordRespVO.class));
+        return success(BeanUtils.toBean(medicalRecordService.getRecord(id), RecordRespVO.class));
     }
 
     @GetMapping("/page")
     @Operation(summary = "获得预问诊病历分页")
     @PreAuthorize("@ss.hasPermission('ai:medical-record:query')")
     public CommonResult<PageResult<RecordRespVO>> getRecordPage(@Validated RecordPageReqVO pageReqVO) {
-        PageResult<AiMedicalRecordDO> pageResult = recordService.getRecordPage(pageReqVO);
+        PageResult<AiMedicalRecordDO> pageResult = medicalRecordService.getRecordPage(pageReqVO);
         return success(BeanUtils.toBean(pageResult, RecordRespVO.class));
     }
 
@@ -68,7 +68,7 @@ public class AiMedicalRecordController {
     @Operation(summary = "获得我的预问诊病历列表")
     public CommonResult<List<RecordRespVO>> getMyRecordList() {
         Long userId = SecurityFrameworkUtils.getLoginUserId();
-        List<AiMedicalRecordDO> list = recordService.getRecordListByUserId(userId);
+        List<AiMedicalRecordDO> list = medicalRecordService.getRecordListByUserId(userId);
         return success(BeanUtils.toBean(list, RecordRespVO.class));
     }
 

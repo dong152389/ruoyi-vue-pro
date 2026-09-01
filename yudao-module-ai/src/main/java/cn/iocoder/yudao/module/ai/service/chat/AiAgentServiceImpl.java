@@ -10,8 +10,13 @@ import cn.iocoder.yudao.module.ai.dal.dataobject.chat.AiChatRoleDO;
 import cn.iocoder.yudao.module.ai.dal.dataobject.knowledge.AiKnowledgeSegmentDO;
 import cn.iocoder.yudao.module.ai.dal.dataobject.model.AiModelDO;
 import cn.iocoder.yudao.module.ai.enums.AiMessageTypeEnum;
+import cn.iocoder.yudao.module.ai.enums.AiPlatformEnum;
 import cn.iocoder.yudao.module.ai.framework.ai.AiModelFactory;
 import cn.iocoder.yudao.module.ai.framework.chat.MedicalChatTools;
+import cn.iocoder.yudao.module.ai.framework.chat.stream.AnthropicChatStreamFormatter;
+import cn.iocoder.yudao.module.ai.framework.chat.stream.AiChatStreamFormatter;
+import cn.iocoder.yudao.module.ai.framework.chat.stream.GeminiChatStreamFormatter;
+import cn.iocoder.yudao.module.ai.framework.chat.stream.OpenAiChatStreamFormatter;
 import cn.iocoder.yudao.module.ai.service.medical.AiMedicalDepartmentService;
 import cn.iocoder.yudao.module.ai.service.medical.AiMedicalDrugService;
 import cn.iocoder.yudao.module.ai.service.medical.AiMedicalRecordService;
@@ -24,18 +29,22 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -43,6 +52,9 @@ import static cn.iocoder.yudao.module.ai.enums.ErrorCodeConstants.CHAT_PROCESS_E
 
 /**
  * 医疗 AI Agent Service 实现类
+ *
+ * 编排：会话上下文 + 角色系统提示词 + 知识库 RAG + 医疗工具调用，
+ * 并将 Spring AI 的 ChatResponse 流翻译为模型平台的官方流式协议输出
  *
  * @author 芋道源码
  */
@@ -72,6 +84,21 @@ public class AiAgentServiceImpl implements AiAgentService {
      */
     private static final String RAG_CONTEXT_PREFIX = "【参考资料】以下是检索到的院内知识库内容，回答时请优先参考：\n\n";
 
+    /**
+     * 会话标题生成提示词（首轮提问后自动重命名会话）
+     */
+    private static final String CONVERSATION_TITLE_PROMPT = """
+            请根据下面的用户问题，为本次对话生成一个简短的中文标题。
+            要求：不超过 12 个字；不要引号、句号、感叹号或任何前缀说明；直接输出标题本身。
+
+            用户问题：
+            """;
+
+    /**
+     * 会话标题生成的最长等待时间（超时后使用问题前缀兜底）
+     */
+    private static final Duration TITLE_TIMEOUT = Duration.ofSeconds(60);
+
     @Resource
     private AiChatConversationService conversationService;
     @Resource
@@ -91,7 +118,7 @@ public class AiAgentServiceImpl implements AiAgentService {
     @Resource
     private AiMedicalScheduleService scheduleService;
     @Resource
-    private AiMedicalRecordService recordService;
+    private AiMedicalRecordService medicalRecordService;
 
     @Override
     public SseEmitter sendStream(Long userId, Long tenantId, MessageSendReqVO reqVO) {
@@ -108,10 +135,13 @@ public class AiAgentServiceImpl implements AiAgentService {
         messageService.createMessage(conversation.getId(), userId,
                 AiMessageTypeEnum.USER.getType(), model.getModel(), reqVO.getContent(), null);
 
+        boolean firstRound = history.isEmpty();
+
         // ========== 3. 知识库 RAG 检索（失败不阻断对话）==========
         String ragContext = buildRagContext(role, reqVO.getContent());
 
-        // ========== 4. 组装 ChatClient：系统提示词 + 历史 + 医疗工具 ==========
+        // ========== 4. 组装 ChatClient：系统提示词 + 历史 + 医疗工具 + 平台级 Options ==========
+        AiPlatformEnum platform = modelFactory.getChatPlatform(model);
         ChatModel chatModel = modelFactory.getOrCreateChatModel(model);
         ChatClient chatClient = ChatClient.create(chatModel);
         String systemPrompt = role != null && StrUtil.isNotBlank(role.getSystemPrompt())
@@ -128,41 +158,53 @@ public class AiAgentServiceImpl implements AiAgentService {
             }
         }
 
-        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder().model(model.getModel());
-        if (conversation.getTemperature() != null) {
-            optionsBuilder.temperature(conversation.getTemperature());
-        }
-        if (conversation.getMaxTokens() != null) {
-            optionsBuilder.maxTokens(conversation.getMaxTokens());
-        }
+        ChatOptions chatOptions = modelFactory.buildChatOptions(model,
+                conversation.getTemperature(), conversation.getMaxTokens());
 
         MedicalChatTools tools = new MedicalChatTools(tenantId, userId, conversation.getId(),
-                departmentService, drugService, scheduleService, recordService);
+                departmentService, drugService, scheduleService, medicalRecordService);
 
-        // ========== 5. 流式调用，推送 SSE 事件，结束后落库 ==========
+        // ========== 5. 按平台官方协议流式输出，结束后落库 ==========
+        AiChatStreamFormatter formatter = switch (platform) {
+            case ANTHROPIC -> new AnthropicChatStreamFormatter(model.getModel());
+            case GEMINI -> new GeminiChatStreamFormatter(model.getModel());
+            default -> new OpenAiChatStreamFormatter(model.getModel());
+        };
         StringBuilder contentBuffer = new StringBuilder();
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
-        Flux<String> flux = chatClient.prompt()
+        AtomicReference<Usage> usageRef = new AtomicReference<>();
+        Flux<ChatResponse> flux = chatClient.prompt()
                 .system(systemPrompt)
                 .messages(historyMessages)
                 .user(userContent)
-                .options(optionsBuilder.build())
+                .options(chatOptions)
                 .tools(tools)
                 .stream()
-                .content();
+                .chatResponse();
 
+        if (!formatter.onStart(emitter)) {
+            return emitter;
+        }
         Disposable disposable = flux.subscribe(
-                // onNext：推送增量内容
+                // onNext：翻译为官方增量帧推送，并累计文本与用量
                 chunk -> {
-                    contentBuffer.append(chunk);
-                    if (!sendEvent(emitter, "content", Map.of("content", chunk))) {
+                    if (!formatter.onDelta(emitter, chunk)) {
                         Disposable current = disposableRef.get();
                         if (current != null) {
                             current.dispose();
                         }
+                        return;
+                    }
+                    AssistantMessage output = AiChatStreamFormatter.getOutput(chunk);
+                    if (output != null && StrUtil.isNotBlank(output.getText())) {
+                        contentBuffer.append(output.getText());
+                    }
+                    ChatResponseMetadata metadata = chunk.getMetadata();
+                    if (metadata != null && metadata.getUsage() != null) {
+                        usageRef.set(metadata.getUsage());
                     }
                 },
-                // onError：保存已生成的部分内容，推送错误事件
+                // onError：保存已生成的部分内容，推送官方错误帧；首轮提问时同样触发标题生成
                 error -> {
                     log.error("[sendStream] 对话失败，conversationId={}", conversation.getId(), error);
                     String partialContent = contentBuffer.toString();
@@ -170,16 +212,23 @@ public class AiAgentServiceImpl implements AiAgentService {
                         TenantUtils.execute(tenantId, () -> messageService.createMessage(conversation.getId(), userId,
                                 AiMessageTypeEnum.ASSISTANT.getType(), model.getModel(), partialContent, null));
                     }
-                    sendEvent(emitter, "error", Map.of("message", resolveErrorMessage(error)));
+                    if (firstRound) {
+                        renameConversationByQuestionAsync(conversation, model, tenantId, userId, reqVO.getContent());
+                    }
+                    formatter.onError(emitter, resolveErrorMessage(error));
                     emitter.complete();
                 },
-                // onComplete：保存 AI 回复，推送完成事件
+                // onComplete：保存 AI 回复（含 token 用量），推送收尾帧与终止符；首轮提问后生成会话标题
                 () -> {
-                    String content = contentBuffer.toString();
-                    AiChatMessageDO savedMessage = TenantUtils.execute(tenantId, () ->
-                            messageService.createMessage(conversation.getId(), userId,
-                                    AiMessageTypeEnum.ASSISTANT.getType(), model.getModel(), content, null));
-                    sendEvent(emitter, "done", Map.of("messageId", savedMessage != null ? savedMessage.getId() : 0L));
+                    Usage usage = usageRef.get();
+                    TenantUtils.execute(tenantId, () -> messageService.createMessage(conversation.getId(), userId,
+                            AiMessageTypeEnum.ASSISTANT.getType(), model.getModel(), contentBuffer.toString(),
+                            usage != null ? usage.getTotalTokens() : null));
+                    // 标题生成放在主流式调用之后，避免与回复请求并发触发中转站限流/超时
+                    if (firstRound) {
+                        renameConversationByQuestionAsync(conversation, model, tenantId, userId, reqVO.getContent());
+                    }
+                    formatter.onComplete(emitter, usage);
                     emitter.complete();
                 });
         disposableRef.set(disposable);
@@ -192,6 +241,73 @@ public class AiAgentServiceImpl implements AiAgentService {
             emitter.complete();
         });
         return emitter;
+    }
+
+    /**
+     * 首轮提问后，基于问题用 AI 生成会话标题并落库（异步执行；仅当标题仍为默认「新对话」时生效）
+     *
+     * 标题调用也走流式（collect 后拼接），避免推理类模型非流式请求等待完整推理、
+     * 被中转站网关 60 秒超时 504 的问题；失败时兜底截取问题前缀作为标题
+     */
+    private void renameConversationByQuestionAsync(AiChatConversationDO conversation, AiModelDO model,
+                                                   Long tenantId, Long userId, String question) {
+        // 标题 AI 调用限时 60 秒：超时/失败则立即用问题前缀兜底，
+        // 之后迟到的 AI 标题也会被 updateConversationTitleIfDefault 的默认标题守卫拦截，不会覆盖
+        CompletableFuture<Void> titleFuture = CompletableFuture.runAsync(() -> {
+            try {
+                String generated = TenantUtils.execute(tenantId, () -> {
+                    ChatModel chatModel = modelFactory.getOrCreateChatModel(model);
+                    ChatClient chatClient = ChatClient.create(chatModel);
+                    ChatOptions chatOptions = modelFactory.buildChatOptions(model, null, null);
+                    return chatClient.prompt()
+                            .user(CONVERSATION_TITLE_PROMPT + question)
+                            .options(chatOptions)
+                            .call()
+                            .content();
+                });
+                String title = normalizeTitle(generated);
+                if (StrUtil.isNotBlank(title)) {
+                    final String finalTitle = title;
+                    TenantUtils.execute(tenantId, () ->
+                            conversationService.updateConversationTitleIfDefault(userId, conversation.getId(), finalTitle));
+                }
+            } catch (Exception ex) {
+                log.warn("[renameConversationByQuestionAsync] 会话标题 AI 生成失败，conversationId={}：{}",
+                        conversation.getId(), ex.getMessage());
+            }
+        });
+        try {
+            titleFuture.get(TITLE_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            return;
+        } catch (Exception ex) {
+            log.warn("[renameConversationByQuestionAsync] 会话标题 AI 生成超时，使用问题前缀兜底，conversationId={}",
+                    conversation.getId());
+        }
+        // 兜底：问题前缀（最长 12 字）
+        String fallback = question.replaceAll("\\s+", "");
+        if (fallback.length() > 12) {
+            fallback = fallback.substring(0, 12);
+        }
+        final String finalFallback = fallback;
+        TenantUtils.execute(tenantId, () ->
+                conversationService.updateConversationTitleIfDefault(userId, conversation.getId(), finalFallback));
+    }
+
+    /**
+     * 清理标题文本：去掉包裹引号与首尾空白，超长截断
+     */
+    private String normalizeTitle(String title) {
+        if (StrUtil.isBlank(title)) {
+            return null;
+        }
+        String result = StrUtil.trim(title);
+        result = StrUtil.removeSuffix(StrUtil.removePrefix(result, "\""), "\"");
+        result = StrUtil.removeSuffix(StrUtil.removePrefix(result, "「"), "」");
+        result = StrUtil.removeSuffix(StrUtil.removePrefix(result, "“"), "”");
+        if (result.length() > 30) {
+            result = result.substring(0, 30);
+        }
+        return StrUtil.isBlank(result) ? null : result;
     }
 
     /**
@@ -218,18 +334,6 @@ public class AiAgentServiceImpl implements AiAgentService {
         } catch (Exception ex) {
             log.warn("[buildRagContext] 知识库检索失败，忽略 RAG。原因：{}", ex.getMessage());
             return null;
-        }
-    }
-
-    private boolean sendEvent(SseEmitter emitter, String type, Map<String, Object> data) {
-        try {
-            Map<String, Object> event = new LinkedHashMap<>(data);
-            event.put("type", type);
-            emitter.send(SseEmitter.event().data(JsonUtils.toJsonString(event)));
-            return true;
-        } catch (Exception ex) {
-            log.warn("[sendEvent] SSE 推送失败，客户端可能已断开：{}", ex.getMessage());
-            return false;
         }
     }
 

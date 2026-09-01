@@ -23,6 +23,11 @@ public interface AiChatConversationService {
     void updateConversationMy(Long userId, ConversationSaveReqVO updateReqVO);
 
     /**
+     * 更新会话标题（仅当标题仍为默认「新对话」或空时生效，避免覆盖用户手动改名）
+     */
+    void updateConversationTitleIfDefault(Long userId, Long id, String title);
+
+    /**
      * 删除我的会话（同时删除会话下的消息）
      */
     void deleteConversationMy(Long userId, Long id);

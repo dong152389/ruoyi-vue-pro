@@ -19,4 +19,7 @@ public class ModelSimpleRespVO {
     @Schema(description = "模型类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "1")
     private Integer type;
 
+    @Schema(description = "模型平台（来自绑定密钥，前端据此解析对应的官方流式协议）", example = "OpenAI兼容")
+    private String platform;
+
 }

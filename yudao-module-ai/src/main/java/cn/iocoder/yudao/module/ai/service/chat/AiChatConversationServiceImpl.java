@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.ai.service.chat;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.ai.controller.admin.chat.vo.conversation.ConversationSaveReqVO;
 import cn.iocoder.yudao.module.ai.dal.dataobject.chat.AiChatConversationDO;
 import cn.iocoder.yudao.module.ai.dal.dataobject.model.AiModelDO;
@@ -39,6 +40,10 @@ public class AiChatConversationServiceImpl implements AiChatConversationService 
      * 默认上下文最大条数
      */
     private static final Integer DEFAULT_MAX_CONTEXTS = 10;
+    /**
+     * 默认会话标题（AI 自动重命名仅在此标题未被替换时生效）
+     */
+    private static final String DEFAULT_CONVERSATION_TITLE = "新对话";
 
     @Resource
     private AiChatConversationMapper conversationMapper;
@@ -54,7 +59,7 @@ public class AiChatConversationServiceImpl implements AiChatConversationService 
         AiChatConversationDO conversation = BeanUtil.toBean(createReqVO, AiChatConversationDO.class);
         conversation.setId(null);
         conversation.setUserId(userId);
-        conversation.setTitle(createReqVO.getTitle() != null ? createReqVO.getTitle() : "新对话");
+        conversation.setTitle(createReqVO.getTitle() != null ? createReqVO.getTitle() : DEFAULT_CONVERSATION_TITLE);
         conversation.setPinned(createReqVO.getPinned() != null ? createReqVO.getPinned() : false);
         conversation.setTemperature(createReqVO.getTemperature() != null ? createReqVO.getTemperature() : DEFAULT_TEMPERATURE);
         conversation.setMaxTokens(createReqVO.getMaxTokens() != null ? createReqVO.getMaxTokens() : DEFAULT_MAX_TOKENS);
@@ -82,6 +87,20 @@ public class AiChatConversationServiceImpl implements AiChatConversationService 
         getConversationMy(userId, updateReqVO.getId());
         AiChatConversationDO updateObj = BeanUtil.toBean(updateReqVO, AiChatConversationDO.class);
         updateObj.setUserId(userId);
+        conversationMapper.updateById(updateObj);
+    }
+
+    @Override
+    public void updateConversationTitleIfDefault(Long userId, Long id, String title) {
+        AiChatConversationDO conversation = getConversationMy(userId, id);
+        boolean defaultTitle = StrUtil.isBlank(conversation.getTitle())
+                || DEFAULT_CONVERSATION_TITLE.equals(conversation.getTitle());
+        if (!defaultTitle) {
+            return;
+        }
+        AiChatConversationDO updateObj = new AiChatConversationDO();
+        updateObj.setId(id);
+        updateObj.setTitle(title);
         conversationMapper.updateById(updateObj);
     }
 

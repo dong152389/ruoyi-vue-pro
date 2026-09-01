@@ -8,6 +8,15 @@ spring:
   main:
     allow-circular-references: true # 允许循环依赖，因为项目是三层架构，无法避免这个情况。
 
+  # 排除 Spring AI 模型自动装配：模型实例由 AiModelFactoryImpl 按 ai_api_key.platform 手动构建，
+  # 自动装配在未配置 spring.ai.google.genai.* / spring.ai.anthropic.api-key 时会因缺密钥直接启动失败
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration
+      - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
+
   # Servlet 配置
   servlet:
     # 文件上传相关配置项

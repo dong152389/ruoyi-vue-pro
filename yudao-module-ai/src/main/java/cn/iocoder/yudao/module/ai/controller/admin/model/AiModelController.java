@@ -8,7 +8,9 @@ import cn.iocoder.yudao.module.ai.controller.admin.model.vo.ModelPageReqVO;
 import cn.iocoder.yudao.module.ai.controller.admin.model.vo.ModelRespVO;
 import cn.iocoder.yudao.module.ai.controller.admin.model.vo.ModelSaveReqVO;
 import cn.iocoder.yudao.module.ai.controller.admin.model.vo.ModelSimpleRespVO;
+import cn.iocoder.yudao.module.ai.dal.dataobject.model.AiApiKeyDO;
 import cn.iocoder.yudao.module.ai.dal.dataobject.model.AiModelDO;
+import cn.iocoder.yudao.module.ai.service.model.AiApiKeyService;
 import cn.iocoder.yudao.module.ai.service.model.AiModelService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +22,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
@@ -31,6 +36,9 @@ public class AiModelController {
 
     @Resource
     private AiModelService modelService;
+
+    @Resource
+    private AiApiKeyService apiKeyService;
 
     @PostMapping("/create")
     @Operation(summary = "创建模型")
@@ -73,12 +81,20 @@ public class AiModelController {
     }
 
     @GetMapping("/simple-list")
-    @Operation(summary = "获得开启状态的模型精简列表", description = "用于前端下拉选择，type 不传时返回全部类型")
+    @Operation(summary = "获得开启状态的模型精简列表", description = "用于前端下拉选择，type 不传时返回全部类型，附带绑定密钥的平台")
     @Parameter(name = "type", description = "模型类型（1对话 2向量）", example = "1")
     public CommonResult<List<ModelSimpleRespVO>> getSimpleModelList(
             @RequestParam(value = "type", required = false) Integer type) {
         List<AiModelDO> list = modelService.getModelListByTypeAndStatus(type, CommonStatusEnum.ENABLE.getStatus());
-        return success(BeanUtils.toBean(list, ModelSimpleRespVO.class));
+        // 批量补齐平台：前端据此决定解析哪种官方流式协议（openai / anthropic / gemini）
+        Map<Long, AiApiKeyDO> apiKeyMap = apiKeyService.getApiKeyListByStatus(CommonStatusEnum.ENABLE.getStatus())
+                .stream().collect(Collectors.toMap(AiApiKeyDO::getId, Function.identity()));
+        List<ModelSimpleRespVO> result = BeanUtils.toBean(list, ModelSimpleRespVO.class);
+        for (int i = 0; i < result.size(); i++) {
+            AiApiKeyDO apiKey = apiKeyMap.get(list.get(i).getKeyId());
+            result.get(i).setPlatform(apiKey != null ? apiKey.getPlatform() : null);
+        }
+        return success(result);
     }
 
 }

@@ -48,10 +48,18 @@
             <artifactId>yudao-spring-boot-starter-mybatis</artifactId>
         </dependency>
 
-        <!-- AI 相关：Spring AI，通过 OpenAI 兼容协议对接 new-api 中转站 -->
+        <!-- AI 相关：Spring AI，按 ai_api_key.platform 构建官方模型 -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai</artifactId>
+            <artifactId>spring-ai-starter-model-openai</artifactId><!-- OpenAI 兼容协议：对接 new-api 等中转站 -->
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-anthropic</artifactId><!-- Anthropic 官方 API -->
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-google-genai</artifactId><!-- Gemini 官方 API（Developer API，API Key 模式） -->
         </dependency>
 
         <!-- 文档解析相关：知识库文档抽取文本 -->
